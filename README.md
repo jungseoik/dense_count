@@ -93,6 +93,8 @@ python main.py --image assets/289.jpg --backend trt_mixed --visualize all --save
 python app.py
 ```
 
+![sample image](assets/sample.png)
+
 ## 프로젝트 구조
 
 ```
