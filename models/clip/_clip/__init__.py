@@ -28,20 +28,17 @@ clip_image_encoder_names = [f"clip_image_encoder_{name[5:]}" for name in clip_mo
 clip_text_encoder_names = [f"clip_text_encoder_{name[5:]}" for name in clip_model_names]
 
 
-for name in clip_model_names + clip_image_encoder_names + clip_text_encoder_names:
-    model_weights_path = os.path.join(curr_dir, "weights", f"{name}.pth")
-    model_config_path = os.path.join(curr_dir, "configs", f"{name}.json")
-    if not os.path.exists(os.path.join(curr_dir, "weights", f"{name}.pth")) or not os.path.exists(os.path.join(curr_dir, "configs", f"{name}.json")):
-        prepare()
-        break
-
-
-for name in clip_model_names + clip_image_encoder_names + clip_text_encoder_names:
-    assert os.path.exists(os.path.join(curr_dir, "weights", f"{name}.pth")), f"Missing {name}.pth in weights folder. Please run models/clip/prepare.py to download the weights."
-    assert os.path.exists(os.path.join(curr_dir, "configs", f"{name}.json")), f"Missing {name}.json in configs folder. Please run models/clip/prepare.py to download the configs."
+def _ensure_prepared():
+    """필요한 CLIP 가중치가 없을 때만 prepare()를 실행합니다."""
+    for name in clip_model_names + clip_image_encoder_names + clip_text_encoder_names:
+        if not os.path.exists(os.path.join(curr_dir, "weights", f"{name}.pth")) or \
+           not os.path.exists(os.path.join(curr_dir, "configs", f"{name}.json")):
+            prepare()
+            break
 
 
 def _clip(name: str, input_size: Optional[Union[int, Tuple[int, int]]] = None) -> CLIP:
+    _ensure_prepared()
     with open(os.path.join(curr_dir, "configs", f"clip_{name}.json"), "r") as f:
         config = json.load(f)
 
@@ -77,6 +74,7 @@ def _resnet(
     out_indices: Optional[Tuple[int, ...]] = None,
     **kwargs: Any
 ) -> ModifiedResNet:
+    _ensure_prepared()
     with open(os.path.join(curr_dir, "configs", f"clip_image_encoder_{name}.json"), "r") as f:
         config = json.load(f)
     model = ModifiedResNet(
@@ -101,6 +99,7 @@ def _resnet(
 
 
 def _vit(name: str, features_only: bool = False, input_size: Optional[Union[int, Tuple[int, int]]] = None, **kwargs: Any) -> VisionTransformer:
+    _ensure_prepared()
     with open(os.path.join(curr_dir, "configs", f"clip_image_encoder_{name}.json"), "r") as f:
         config = json.load(f)
     model = VisionTransformer(
@@ -127,6 +126,7 @@ def _vit(name: str, features_only: bool = False, input_size: Optional[Union[int,
 
 
 def _text_encoder(name: str) -> CLIPTextEncoder:
+    _ensure_prepared()
     with open(os.path.join(curr_dir, "configs", f"clip_text_encoder_{name}.json"), "r") as f:
         config = json.load(f)
     model = CLIPTextEncoder(

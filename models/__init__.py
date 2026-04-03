@@ -1,6 +1,5 @@
 from typing import List, Tuple, Optional, Any, Union
 
-from .model import _classifier, _regressor, Classifier, Regressor
 from .clip import _clip_ebc, CLIP_EBC
 import assets
 
@@ -14,36 +13,19 @@ def get_model(
     bins: Optional[List[Tuple[float, float]]] = None,
     anchor_points: Optional[List[float]] = None,
     **kwargs: Any,
-) -> Union[Regressor, Classifier, CLIP_EBC]:
+) -> CLIP_EBC:
     backbone = backbone.lower()
     if "clip" in backbone:
         backbone = backbone[5:]
-        assert backbone in clip_names, f"Expected backbone to be in {clip_names}, got {backbone}"
-        return _clip_ebc(
-            backbone=backbone,
-            input_size=input_size,
-            reduction=reduction,
-            bins=bins,
-            anchor_points=anchor_points,
-            **kwargs
-        )
-    elif bins is None and anchor_points is None:
-        return _regressor(
-            backbone=backbone,
-            input_size=input_size,
-            reduction=reduction,
-        )
-    else:
-        assert bins is not None and anchor_points is not None, f"Expected bins and anchor_points to be both None or not None, got {bins} and {anchor_points}"
-        return _classifier(
-            backbone=backbone,
-            input_size=input_size,
-            reduction=reduction,
-            bins=bins,
-            anchor_points=anchor_points,
-        )
+    assert backbone in clip_names, f"Expected backbone to be in {clip_names}, got {backbone}"
+    return _clip_ebc(
+        backbone=backbone,
+        input_size=input_size,
+        reduction=reduction,
+        bins=bins,
+        anchor_points=anchor_points,
+        **kwargs
+    )
 
 
-__all__ = [
-    "get_model",
-]
+__all__ = ["get_model"]
