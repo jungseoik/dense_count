@@ -5,26 +5,48 @@ ONNX, TensorRT FP32, TensorRT Mixed Precision, PyTorch 4개 백엔드를 통일�
 
 ## 백엔드 비교
 
-| 백엔드 | 속도 (ONNX 대비) | VRAM (모델 로드) | 정확도 (count diff) | 엔진 크기 |
+> 측정 환경: NVIDIA RTX PRO 6000 (97GB), CUDA 13.0, TensorRT 10.16
+> TRT 엔진은 `max_batch_size=1024`로 빌드한 기준. max_batch를 줄이면 VRAM도 비례 감소.
+
+| 백엔드 | 속도 (ONNX 대비) | VRAM (모델 로드) | 정확도 (count diff) | 모델 크기 |
 |---|---|---|---|---|
-| ONNX | 1.0x (기준) | ~2.5 GB | - | 371 MB |
-| TRT FP32 | **1.4x** | ~13.8 GB | < 0.05 | 372 MB |
-| TRT Mixed | **2.5x** | ~6.5 GB | < 1.0 | 188 MB |
-| PTH | ~0.5x | ~2 GB | (기준) | 613 MB |
+| ONNX | 1.0x (기준) | ~0.5 GB | - | 371 MB |
+| TRT FP32 (max_batch=1024) | **1.4x** | ~11.9 GB | < 0.05 | 372 MB |
+| TRT Mixed (max_batch=1024) | **2.5x** | ~4.4 GB | < 1.0 | 188 MB |
+
+**TRT VRAM은 max_batch_size에 비례합니다:**
+
+| max_batch_size | TRT Mixed VRAM |
+|---|---|
+| 64 | ~0.6 GB |
+| 128 | ~0.8 GB |
+| 256 | ~1.3 GB |
+| 512 | ~2.3 GB |
+| 1024 | ~4.4 GB |
+
+> FHD(1920x1080)는 45 tiles이므로 `max_batch_size=64`면 충분. 4K 이상 대형 이미지를 처리한다면 더 높게 설정.
 
 ## 설치
 
 ```bash
-conda create -n ebc python=3.12.4
+conda create -n ebc python=3.12 -y
 conda activate ebc
-pip install -r requirements.txt
-pip install opencv-python-headless
 
-# TensorRT (선택)
-pip install tensorrt tensorrt_cu13 tensorrt_cu13_bindings tensorrt_cu13_libs
+# 1. PyTorch (CUDA 버전에 맞는 index-url 사용)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+
+# 2. 나머지 종속성 (TensorRT 포함)
+pip install -r requirements.txt
 ```
 
+> PyTorch는 CUDA 버전별로 설치 URL이 다릅니다.
+> - CUDA 13.0: `https://download.pytorch.org/whl/cu130`
+> - CUDA 12.1: `https://download.pytorch.org/whl/cu121`
+> - [PyTorch 공식 설치 가이드](https://pytorch.org/get-started/locally/) 참조
+
 ## 빠른 시작
+
+### ONNX 추론
 
 ```python
 from src.config import InferenceConfig
@@ -32,11 +54,11 @@ from src.onnx import ClipEBCOnnx
 
 model = ClipEBCOnnx(InferenceConfig(model_path="assets/CLIP_EBC_nwpu_rmse_onnx.onnx"))
 
-# 배치 추론
+# 배치 추론 (여러 이미지)
 counts = model.predict([img1, img2])  # List[float]
 
 # 단일 이미지
-count = model.predict_single("assets/289.jpg")
+count = model.predict_single("assets/289.jpg")  # float
 
 # 추론 + 시각화 (density map + dot overlay)
 counts, heat_overlays, dot_overlays = model.predict_dense_dot([img1, img2])
@@ -61,6 +83,9 @@ python -m src.trt.builder --mixed --output assets/CLIP_EBC_nwpu_rmse_tensorrt_mi
 
 # FP32
 python -m src.trt.builder --output assets/CLIP_EBC_nwpu_rmse_tensorrt.engine
+
+# max_batch_size 조정 (VRAM 절약)
+python -m src.trt.builder --mixed --max-batch 64 --output assets/my_engine.engine
 ```
 
 Python API:
@@ -68,7 +93,7 @@ Python API:
 from src.config import TRTBuildConfig
 from src.trt import build_engine
 
-build_engine(TRTBuildConfig(mixed_precision=True))
+build_engine(TRTBuildConfig(mixed_precision=True, max_batch_size=64))
 ```
 
 ### PyTorch 추론
@@ -126,6 +151,8 @@ CLIP_EBC_ONNX/
 ```
 
 ## 벤치마크 테스트
+
+GPU 교체 시 성능 확인:
 
 ```bash
 # VRAM 한계 + 배치별 속도
